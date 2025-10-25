@@ -1,6 +1,10 @@
-// lib/firebase.ts
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  setPersistence,
+  browserLocalPersistence
+} from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -16,12 +20,11 @@ export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Auth provider (export both names to be compatible with existing code)
 export const googleProvider = new GoogleAuthProvider();
 export const provider = googleProvider;
 
-// Ensure session persists across refresh/navigation (especially on Vercel)
+// ✅ 關鍵：設定登入持久化
 setPersistence(auth, browserLocalPersistence).catch(() => {});
 
-// Localize auth messages
+// ✅ 改成繁體中文錯誤訊息
 auth.languageCode = 'zh-TW';
