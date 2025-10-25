@@ -47,9 +47,10 @@ export default async function middleware(req: NextRequest) {
   res.headers.set('X-RateLimit-Remaining', String(Math.max(0, MAX_COUNT - count)));
   res.headers.set('X-RateLimit-Reset', String(ts + WINDOW_MS));
 
+  // FIX: sameSite must be lowercase string literal 'lax' to satisfy ResponseCookie type
   res.cookies.set('rl', encodeCookie({ c: count, t: ts }), {
     httpOnly: true,
-    sameSite: 'Lax',
+    sameSite: 'lax',
     secure: true,
     path: '/',
     maxAge: 60 * 5,

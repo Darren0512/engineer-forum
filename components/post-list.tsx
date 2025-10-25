@@ -2,7 +2,7 @@
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Button, Input, Select } from '@/components/ui';
-import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, limit, orderBy, query, collection as col, getCountFromServer } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Post } from '@/lib/types';
 import Link from 'next/link';
@@ -19,6 +19,7 @@ export default function PostList() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [industry, setIndustry] = useState<string>('all');
   const [keyword, setKeyword] = useState('');
+  const [likeMap, setLikeMap] = useState<Record<string, number>>({});
 
   useEffect(()=>{
     (async ()=>{
@@ -27,6 +28,16 @@ export default function PostList() {
       const list: Post[] = [];
       snaps.forEach(s=> list.push({ id: s.id, ...(s.data() as any) }));
       setPosts(list);
+
+      // fallback counts for Spark plan
+      const entries = await Promise.all(list.map(async (p)=>{
+        if (typeof (p as any).likesCount === 'number') return [p.id, (p as any).likesCount];
+        try {
+          const c = await getCountFromServer(col(db, 'posts', p.id, 'likes'));
+          return [p.id, c.data().count];
+        } catch { return [p.id, 0]; }
+      }));
+      setLikeMap(Object.fromEntries(entries as any));
     })();
   }, []);
 
@@ -39,10 +50,10 @@ export default function PostList() {
     return posts
       .filter(p => !p.deleted)
       .filter(p => p.createdAt >= since)
-      .map(p => ({...p, score: (p.commentsCount||0) + (p.likesCount||0)}))
+      .map(p => ({...p, score: (p.commentsCount||0) + ((p as any).likesCount ?? likeMap[p.id] ?? 0)}))
       .sort((a,b)=> b.score - a.score)
       .slice(0,5);
-  }, [posts]);
+  }, [posts, likeMap]);
 
   return (
     <div className="grid">
@@ -51,9 +62,9 @@ export default function PostList() {
           <div className="title" style={{fontSize:16}}>🔥 熱門文章（24 小時）</div>
           {popular.length===0 && <div className="small">暫無</div>}
           {popular.map((p,i)=>(
-            <div key={p.id} className="vstack" style={{marginTop:8}} title={fmtAuthor(p.authorSnapshot)}>
+            <div key={p.id} className="vstack" style={{marginTop:8}} title={fmtAuthor((p as any).authorSnapshot)}>
               <Link href={`/posts/${p.id}`} className="link">{i+1}. {p.title}</Link>
-              <div className="small">互動：{(p.commentsCount||0)+(p.likesCount||0)} · 👍 {p.likesCount||0}</div>
+              <div className="small">互動：{(p.commentsCount||0)+(((p as any).likesCount ?? likeMap[p.id] ?? 0))} · 👍 {((p as any).likesCount ?? likeMap[p.id] ?? 0)}</div>
             </div>
           ))}
         </Card>
@@ -74,15 +85,15 @@ export default function PostList() {
         )}
         {filtered.map(p=>(
           <Card key={p.id}>
-            <div className="vstack" title={fmtAuthor(p.authorSnapshot)}>
+            <div className="vstack" title={fmtAuthor((p as any).authorSnapshot)}>
               <div className="hstack" style={{justifyContent:'space-between', alignItems:'baseline'}}>
                 <Link href={`/posts/${p.id}`} className="title">{p.title}</Link>
-                <div className="small" title="按讚數">👍 {p.likesCount||0}</div>
+                <div className="small" title="按讚數">👍 {((p as any).likesCount ?? likeMap[p.id] ?? 0)}</div>
               </div>
-              <div className="small">作者：{fmtAuthor(p.authorSnapshot)}</div>
-              <div>{p.content.slice(0,200)}{p.content.length>200?'...':''}</div>
+              <div className="small">作者：{fmtAuthor((p as any).authorSnapshot)}</div>
+              <div>{(p as any).content.slice(0,200)}{((p as any).content.length>200)?'...':''}</div>
               <div className="hstack">
-                <Link href={`/posts/${p.id}`} className="link">查看全文（{p.commentsCount||0}）</Link>
+                <Link href={`/posts/${p.id}`} className="link">查看全文（{(p as any).commentsCount||0}）</Link>
               </div>
             </div>
           </Card>
