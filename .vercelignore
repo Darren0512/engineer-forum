@@ -1,0 +1,13 @@
+# Exclude Firebase backend & local configs from Vercel upload/build
+functions/
+firebase.json
+.firebaserc
+firestore.rules
+firestore.indexes.json
+.emulator/*
+.emulator/**
+
+# Misc/dev artifacts
+*.log
+*.local
+.env*

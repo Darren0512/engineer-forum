@@ -10,18 +10,19 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
-    "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
+    "incremental": true,
+    "baseUrl": ".",
     "paths": {
       "@/*": [
-        "./*"
+        "*"
       ]
     },
-    "incremental": true,
+    "esModuleInterop": true,
     "plugins": [
       {
         "name": "next"
@@ -35,6 +36,13 @@
     ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "functions",
+    "firebase.json",
+    ".firebaserc",
+    "firestore.rules",
+    "firestore.indexes.json",
+    ".emulator",
+    "emulator"
   ]
 }

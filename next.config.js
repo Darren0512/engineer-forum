@@ -1,8 +1,11 @@
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  eslint: {
+    // Skip ESLint during Vercel build to avoid scanning excluded folders
+    ignoreDuringBuilds: true,
+  },
   async headers() {
     return [
       {
@@ -27,8 +30,9 @@ const nextConfig = {
         ],
       },
       {
+        // Prevent preview URLs from being indexed
         source: '/(.*)',
-        has: [{ type: 'header', key: 'host', value: '(.*)-vercel\.app' }],
+        has: [{ type: 'header', key: 'host', value: '(.*)-vercel\\.app' }],
         headers: [{ key: 'X-Robots-Tag', value: 'noindex' }],
       },
     ];

@@ -1,4 +1,3 @@
-
 import { NextResponse, NextRequest } from 'next/server';
 
 export const config = {
@@ -47,7 +46,7 @@ export default async function middleware(req: NextRequest) {
   res.headers.set('X-RateLimit-Remaining', String(Math.max(0, MAX_COUNT - count)));
   res.headers.set('X-RateLimit-Reset', String(ts + WINDOW_MS));
 
-  // FIX: sameSite must be lowercase string literal 'lax' to satisfy ResponseCookie type
+  // Note: ResponseCookie sameSite must be lowercase literal type
   res.cookies.set('rl', encodeCookie({ c: count, t: ts }), {
     httpOnly: true,
     sameSite: 'lax',
