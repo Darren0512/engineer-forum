@@ -3,33 +3,81 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() { return request.auth != null; }
-    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
-
+    // profiles: only owner can write; simple validation; 3-day cooldown
     match /profiles/{uid} {
-      allow read: if true;
-      allow create: if isOwner(uid);
-      allow update: if isOwner(uid)
-        && (request.time.toMillis() - resource.data.updatedAt) > 1000*60*60*24*3;
+      allow read: if true; // or request.auth != null
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.nick is string && request.resource.data.nick.size() > 0 && request.resource.data.nick.size() <= 50
+        && request.resource.data.position is string && request.resource.data.position.size() > 0 && request.resource.data.position.size() <= 50
+        && request.resource.data.industry is string && request.resource.data.industry.size() > 0 && request.resource.data.industry.size() <= 50
+        && request.resource.data.y is int && request.resource.data.y >= 0 && request.resource.data.y <= 50
+        && request.resource.data.m is int && request.resource.data.m >= 0 && request.resource.data.m <= 11
+        && request.resource.data.salary10k is int && request.resource.data.salary10k > 12
+        && (
+            !('updatedAt' in resource.data) ||
+            (request.time.toMillis() - resource.data.updatedAt >= 3 * 24 * 60 * 60 * 1000)
+        );
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
+    // posts: anyone can read; author can write; counters immutable from client
     match /posts/{postId} {
       allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isOwner(resource.data.authorUid);
+
+      allow create: if request.auth != null
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.title is string && request.resource.data.title.size() >= 5 && request.resource.data.title.size() <= 120
+        && request.resource.data.content is string && request.resource.data.content.size() >= 5 && request.resource.data.content.size() <= 20000
+        && request.resource.data.industry is string && request.resource.data.industry.size() > 0 && request.resource.data.industry.size() <= 50
+        && request.resource.data.authorSnapshot is map
+        && request.resource.data.likesCount == 0
+        && request.resource.data.commentsCount == 0
+        && request.resource.data.createdAt is int;
+
+      allow update: if request.auth != null && request.auth.uid == resource.data.authorUid
+        && request.resource.data.authorUid == resource.data.authorUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.likesCount == resource.data.likesCount
+        && request.resource.data.commentsCount == resource.data.commentsCount;
+
+      allow delete: if request.auth != null && request.auth.uid == resource.data.authorUid;
+
+      // nested comments
       match /comments/{commentId} {
         allow read: if true;
-        allow create: if isSignedIn();
-        allow update, delete: if isOwner(resource.data.uid);
+        allow create: if request.auth != null
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.content is string
+          && request.resource.data.content.size() >= 1
+          && request.resource.data.createdAt is int
+          && (
+              !('parentId' in request.resource.data) ||
+              request.resource.data.parentId == null ||
+              (request.resource.data.parentId is string && request.resource.data.parentId.size() > 0)
+          )
+          && (!('authorSnapshot' in request.resource.data) || request.resource.data.authorSnapshot is map);
+        allow delete: if request.auth != null && request.auth.uid == resource.data.uid;
+        allow update: if false;
       }
+
+      // likes subcollection
       match /likes/{uid} {
         allow read: if true;
-        allow write: if isOwner(uid);
+        allow create: if request.auth != null && request.auth.uid == uid && resource == null;
+        allow delete: if request.auth != null && request.auth.uid == uid;
+        allow update: if false;
       }
     }
 
-    match /notifications/{notifId} {
-      allow read, write: if isOwner(resource.data.uid);
+    // user notifications under /users/{uid}/notifications/{nid}
+    match /users/{uid}/notifications/{nid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid
+        && ('read' in request.resource.data) && request.resource.data.keys().hasOnly(['read']);
+      allow delete: if request.auth != null && request.auth.uid == uid;
+      allow create: if false; // via Cloud Functions only
     }
   }
 }
